@@ -76,18 +76,21 @@
       <!-- Tab Buttons -->
       <div class="flex justify-center mb-6">
         <button
+          id="all-btn"
           onclick="filterCards('All')"
           class="tab-btn bg-blue-500 text-white px-4 py-2 mx-1 rounded hover:bg-blue-600"
         >
           All
         </button>
         <button
+          id="event-btn"
           onclick="filterCards('Event')"
           class="tab-btn bg-gray-200 text-gray-800 px-4 py-2 mx-1 rounded hover:bg-gray-300"
         >
           Event
         </button>
         <button
+          id="unit-btn"
           onclick="filterCards('Unit')"
           class="tab-btn bg-gray-200 text-gray-800 px-4 py-2 mx-1 rounded hover:bg-gray-300"
         >
@@ -95,10 +98,33 @@
         </button>
       </div>
 
+      <!-- Loading Indicator -->
+      <div id="loading-indicator" class="text-center py-8">
+        <div
+          class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"
+        ></div>
+        <p class="mt-2 text-gray-600">Loading events...</p>
+      </div>
+
+      <!-- Error Message -->
+      <div
+        id="error-message"
+        class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 mx-auto max-w-lg text-center"
+      >
+        <strong>Error:</strong>
+        <span id="error-text">Could not load events</span>
+        <button
+          onclick="retryLoading()"
+          class="ml-4 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded"
+        >
+          Retry
+        </button>
+      </div>
+
       <!-- Cards Container -->
       <div
         id="event-container"
-        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-4"
+        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-4 hidden"
       ></div>
 
       <h2 class="text-xl font-bold mt-4 text-center">Review</h2>
@@ -106,113 +132,160 @@
     </div>
 
     <script>
-      let allEvents = []; // will be populated from your JSON
+      let allEvents = []; // will be populated with all events
+      let currentFilter = "All"; // Track current filter state
 
-      // Render cards
+      // Function to show loading indicator
+      function showLoading() {
+        document.getElementById("loading-indicator").classList.remove("hidden");
+        document.getElementById("event-container").classList.add("hidden");
+        document.getElementById("error-message").classList.add("hidden");
+      }
+
+      // Function to show error message
+      function showError(message) {
+        document.getElementById("loading-indicator").classList.add("hidden");
+        document.getElementById("event-container").classList.add("hidden");
+        document.getElementById("error-message").classList.remove("hidden");
+        document.getElementById("error-text").textContent =
+          message || "Could not load events";
+      }
+
+      // Function to show content
+      function showContent() {
+        document.getElementById("loading-indicator").classList.add("hidden");
+        document.getElementById("event-container").classList.remove("hidden");
+        document.getElementById("error-message").classList.add("hidden");
+      }
+
+      // Render cards based on filter
       function renderCards(filter = "All") {
         const container = document.getElementById("event-container");
-        container.innerHTML = "";
+        container.innerHTML = ""; // Clear existing cards
 
+        // Get filtered events
         const filtered =
           filter === "All"
             ? allEvents
-            : allEvents.filter((e) => e.category === filter);
+            : allEvents.filter((event) => event.category === filter);
 
+        console.log(
+          `Filtering by: ${filter}, Found: ${filtered.length} events`
+        );
+
+        if (filtered.length === 0) {
+          container.innerHTML =
+            '<div class="col-span-full text-center py-4 text-gray-500">No events found in this category</div>';
+          showContent();
+          return;
+        }
+
+        // Create and append card for each event
         filtered.forEach((event) => {
           const card = document.createElement("div");
           card.className =
             "bg-white shadow-md rounded-lg p-4 hover:shadow-lg cursor-pointer";
           card.innerHTML = `
-  <h3 class="text-lg font-bold mb-2">${event.eventName}</h3>
-  <p class="text-sm text-gray-600">Reviews: ${event.reviews.length}</p>
-  ${
-    event.category === "Event"
-      ? `<p class="text-sm text-gray-600">Organizer: ${event.organizer}</p>`
-      : ""
-  }
-`;
+            <h3 class="text-lg font-bold mb-2">${event.eventName}</h3>
+            <p class="text-sm text-gray-600">Category: ${event.category}</p>
+            <p class="text-sm text-gray-600">Reviews: ${
+              event.number_of_reviews ||
+              (event.reviews ? event.reviews.length : 0)
+            }</p>
+            ${
+              event.organizer
+                ? `<p class="text-sm text-gray-600">Organizer: ${event.organizer}</p>`
+                : ""
+            }
+          `;
 
+          // Add click event to navigate to event details
           card.onclick = () => {
             window.location.href = `eventDetails.html?id=${event.eventID}`;
           };
 
-          //   if (event.category === "Event") {
-          //     content += `<p class="text-sm text-gray-600">Organizer: ${event.organizer}</p>`;
-          //   }
-          //   card.innerHTML = content;
           container.appendChild(card);
         });
+
+        showContent();
       }
 
-      // Filter function
+      // Filter function - called when filter buttons are clicked
       function filterCards(category) {
-        document
-          .querySelectorAll(".tab-btn")
-          .forEach((btn) => btn.classList.remove("bg-blue-500", "text-white"));
-        event.target.classList.add("bg-blue-500", "text-white");
+        currentFilter = category;
+
+        // Update button styles
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+          btn.classList.remove("bg-blue-500", "text-white");
+          btn.classList.add("bg-gray-200", "text-gray-800");
+        });
+
+        // Highlight active button
+        let btnId;
+        if (category === "All") btnId = "all-btn";
+        else if (category === "Event") btnId = "event-btn";
+        else if (category === "Unit") btnId = "unit-btn";
+
+        if (btnId) {
+          document
+            .getElementById(btnId)
+            .classList.remove("bg-gray-200", "text-gray-800");
+          document
+            .getElementById(btnId)
+            .classList.add("bg-blue-500", "text-white");
+        }
+
+        // Render filtered cards
         renderCards(category);
       }
 
-      // Load JSON and initialize
-      fetch("events.json") // Or provide the actual path
-        .then((res) => res.json())
-        .then((data) => {
-          allEvents = data;
-          renderCards();
-        });
+      // Function to retry loading events
+      function retryLoading() {
+        loadEvents();
+      }
 
-      // v2
-      //     fetch('events.json')
-      //   .then(response => response.json())
-      //   .then(events => {
-      //     const container = document.getElementById('event-container');
-      //     events.forEach(event => {
-      //       const card = document.createElement('div');
-      //       card.className = 'card';
-      //       card.innerHTML = `
-      //         <div class="event-title">${event.eventName}</div>
-      //         <div class="review-count">Reviews: ${event.reviews.length}</div>
-      //         <div class="organizer">Organized by: ${event.organizer}</div>
-      //       `;
-      //       container.appendChild(card);
-      //     });
-      //   })
-      //   .catch(error => {
-      //     console.error('Error loading events:', error);
-      //   });
+      // Load events from API with fallback to events.json
+      function loadEvents() {
+        showLoading();
 
-      //   V1
-      //     const event = {
-      //   eventID : 1,
-      //   eventName : "MACATHON",
-      //   organizer : "Monash Association of Technology",
-      //   category : "Event",
-      //   code : "MAC001",
-      //   description : "Hackathon for university student",
-      //   date : "",
-      //   comments : {},
-      //   reviews : [
-      //     {
-      //       id : "ksahf4354fesrr4",
-      //       level : 5,
-      //       revieverName : "Akash",
-      //       date : "",
-      //       message : ""
-      //     }
-      //   ],
-      //   tags : []
-      // };
+        // Try API first
+        fetch("/apis/v1/event")
+          .then((response) => {
+            if (!response.ok)
+              throw new Error(`API request failed: ${response.status}`);
+            return response.json();
+          })
+          .then((data) => {
+            allEvents = data;
+            console.log("Events loaded from API:", allEvents.length);
+            renderCards(currentFilter);
+          })
+          .catch((apiError) => {
+            console.error("API Error:", apiError);
 
-      // const container = document.getElementById('event-container');
-      // const card = document.createElement('div');
-      // card.className = 'card';
+            // Fallback to events.json
+            fetch("/events.json")
+              .then((response) => {
+                if (!response.ok) throw new Error("Could not load events.json");
+                return response.json();
+              })
+              .then((data) => {
+                allEvents = data.map((event) => ({
+                  ...event,
+                  number_of_reviews: event.reviews ? event.reviews.length : 0,
+                }));
+                console.log("Events loaded from JSON:", allEvents.length);
+                renderCards(currentFilter);
+              })
+              .catch((jsonError) => {
+                console.error("JSON Error:", jsonError);
+                showError("Failed to load events from any source");
+              });
+          });
+      }
 
-      // card.innerHTML = `
-      //   <div class="event-title">${event.eventName}</div>
-      //   <div class="review-count">Number of Reviews: ${event.reviews.length}</div>
-      // `;
-
-      // container.appendChild(card);
+      // Initialize when page loads
+      document.addEventListener("DOMContentLoaded", loadEvents);
     </script>
   </body>
 </html>

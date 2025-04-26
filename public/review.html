@@ -8,6 +8,19 @@
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.2/dist/tailwind.min.css"
       rel="stylesheet"
     />
+    <style>
+      .emoji-button {
+        transition: transform 0.2s ease, filter 0.2s ease;
+        cursor: pointer;
+      }
+      .emoji-button:hover {
+        transform: scale(1.25);
+      }
+      .emoji-button.selected {
+        transform: scale(1.5);
+        filter: drop-shadow(0 0 10px #facc15); /* gold glow */
+      }
+    </style>
   </head>
   <body class="bg-gray-100">
     <!-- Navbar -->
@@ -42,15 +55,298 @@
             class="text-lg font-bold bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded shadow-lg"
             >Dashboard</a
           >
-          <a
-            href="/review"
-            class="text-lg bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded shadow-lg"
-            >Buy</a
-          >
         </div>
       </div>
     </nav>
 
-    <script></script>
+    <div class="container mx-auto p-8">
+      <h1 class="text-3xl font-bold mb-6">Make a Review</h1>
+
+      <!-- Simplified version that uses events.json directly -->
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Select an Event to Review</h2>
+
+        <div class="mb-6">
+          <label for="event-select" class="block mb-2 font-medium"
+            >Choose an Event:</label
+          >
+          <select
+            id="event-select"
+            class="w-full p-3 border border-gray-300 rounded"
+          >
+            <option value="" selected disabled>-- Select an Event --</option>
+            <!-- Events will be loaded here -->
+          </select>
+        </div>
+
+        <div id="event-info" class="mb-6 p-4 bg-gray-50 rounded-lg hidden">
+          <h3 id="selected-event-name" class="text-lg font-bold"></h3>
+          <p id="selected-event-details" class="text-gray-700"></p>
+        </div>
+
+        <div id="review-form-container" class="hidden">
+          <h3 class="text-xl font-semibold mb-4">Your Review</h3>
+
+          <form id="review-form">
+            <div class="mb-4">
+              <label for="reviewer-name" class="block mb-2 font-medium"
+                >Your Name:</label
+              >
+              <input
+                type="text"
+                id="reviewer-name"
+                class="w-full p-3 border border-gray-300 rounded"
+                required
+              />
+            </div>
+
+            <div class="mb-4">
+              <label class="block mb-2 font-medium">Rating:</label>
+              <div class="flex space-x-4 text-3xl">
+                <span
+                  data-rating="1"
+                  class="rating-emoji cursor-pointer hover:transform hover:scale-125"
+                  >😡</span
+                >
+                <span
+                  data-rating="2"
+                  class="rating-emoji cursor-pointer hover:transform hover:scale-125"
+                  >😔</span
+                >
+                <span
+                  data-rating="3"
+                  class="rating-emoji cursor-pointer hover:transform hover:scale-125"
+                  >😐</span
+                >
+                <span
+                  data-rating="4"
+                  class="rating-emoji cursor-pointer hover:transform hover:scale-125"
+                  >🙂</span
+                >
+                <span
+                  data-rating="5"
+                  class="rating-emoji cursor-pointer hover:transform hover:scale-125"
+                  >😄</span
+                >
+              </div>
+              <input type="hidden" id="rating-value" required />
+            </div>
+
+            <div class="mb-4">
+              <label for="review-comment" class="block mb-2 font-medium"
+                >Comment:</label
+              >
+              <textarea
+                id="review-comment"
+                rows="4"
+                class="w-full p-3 border border-gray-300 rounded"
+              ></textarea>
+            </div>
+
+            <button
+              type="submit"
+              class="bg-blue-500 text-white px-6 py-3 rounded hover:bg-blue-600"
+            >
+              Submit Review
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Use a mix of API and local JSON as fallback
+      document.addEventListener("DOMContentLoaded", function () {
+        // Try loading from API first
+        tryLoadEvents();
+      });
+
+      function tryLoadEvents() {
+        // Try to load from events.json first for simplicity
+        fetch("/events.json")
+          .then((response) => {
+            if (!response.ok) throw new Error("Could not load events.json");
+            return response.json();
+          })
+          .then((events) => {
+            populateEventSelect(events);
+          })
+          .catch((error) => {
+            console.error("Error loading events.json:", error);
+            // Try API as fallback
+            fetch("/apis/v1/event")
+              .then((response) => {
+                if (!response.ok) throw new Error("API request failed");
+                return response.json();
+              })
+              .then((events) => {
+                populateEventSelect(events);
+              })
+              .catch((apiError) => {
+                console.error("Error with API fallback:", apiError);
+                alert("Failed to load events. Please try again later.");
+              });
+          });
+      }
+
+      // Populate the event select dropdown
+      function populateEventSelect(events) {
+        const select = document.getElementById("event-select");
+        select.innerHTML =
+          '<option value="" selected disabled>-- Select an Event --</option>';
+
+        events.forEach((event) => {
+          const option = document.createElement("option");
+          option.value = event.eventID;
+          option.textContent = event.eventName || "Unnamed Event";
+          select.appendChild(option);
+        });
+      }
+
+      // Store all events for reference
+      let allEvents = [];
+      let selectedEvent = null;
+
+      // Handle event selection
+      document
+        .getElementById("event-select")
+        .addEventListener("change", function () {
+          const eventId = Number(this.value);
+          if (!eventId) return;
+
+          // Try to find the event in our loaded data first
+          fetch("/events.json")
+            .then((response) => response.json())
+            .then((events) => {
+              allEvents = events;
+              selectedEvent = events.find((e) => e.eventID === eventId);
+              if (selectedEvent) {
+                displayEventInfo(selectedEvent);
+              } else {
+                throw new Error("Event not found");
+              }
+            })
+            .catch((error) => {
+              console.error("Error finding event:", error);
+              // Try API as fallback
+              fetch(`/apis/v1/event/${eventId}`)
+                .then((response) => {
+                  if (!response.ok) throw new Error("Event not found via API");
+                  return response.json();
+                })
+                .then((event) => {
+                  selectedEvent = event;
+                  displayEventInfo(event);
+                })
+                .catch((apiError) => {
+                  console.error("API error:", apiError);
+                  alert(
+                    "Could not load event details. Please try again later."
+                  );
+                });
+            });
+        });
+
+      // Display event information
+      function displayEventInfo(event) {
+        document.getElementById("event-info").classList.remove("hidden");
+        document
+          .getElementById("review-form-container")
+          .classList.remove("hidden");
+
+        document.getElementById("selected-event-name").textContent =
+          event.eventName;
+
+        let detailsText = `${event.category} | ${event.code} | ${event.date}`;
+        if (event.category === "Event") {
+          detailsText += ` | Organizer: ${event.organizer}`;
+        }
+
+        if (event.tags && event.tags.length > 0) {
+          detailsText += ` | Tags: ${event.tags.join(", ")}`;
+        }
+
+        document.getElementById("selected-event-details").textContent =
+          detailsText;
+      }
+
+      // Handle emoji rating selection
+      document.querySelectorAll(".rating-emoji").forEach((emoji) => {
+        emoji.addEventListener("click", function () {
+          // Remove selected class from all emojis
+          document.querySelectorAll(".rating-emoji").forEach((e) => {
+            e.classList.remove("text-4xl");
+            e.style.filter = "";
+          });
+
+          // Add selected class to clicked emoji
+          this.classList.add("text-4xl");
+          this.style.filter = "drop-shadow(0 0 10px #facc15)";
+
+          // Set hidden input value
+          document.getElementById("rating-value").value = this.dataset.rating;
+        });
+      });
+
+      // Handle form submission
+      document
+        .getElementById("review-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          if (!selectedEvent) {
+            alert("Please select an event first");
+            return;
+          }
+
+          const eventId = selectedEvent.eventID;
+          const name = document.getElementById("reviewer-name").value.trim();
+          const rating = document.getElementById("rating-value").value;
+          const comment = document
+            .getElementById("review-comment")
+            .value.trim();
+
+          if (!name || !rating) {
+            alert("Please provide your name and rating");
+            return;
+          }
+
+          // Create review object
+          const newReview = {
+            id: Date.now().toString(),
+            revieverName: name,
+            level: parseInt(rating),
+            date: new Date().toISOString().split("T")[0],
+            message: comment || "No comment provided.",
+          };
+
+          // Try to submit to API
+          fetch(`/apis/v1/event/${eventId}/review`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(newReview),
+          })
+            .then((response) => {
+              if (!response.ok) throw new Error("Failed to submit review");
+              return response.json();
+            })
+            .then((data) => {
+              alert("Thank you for your review!");
+              // Redirect to event details page
+              window.location.href = `/eventDetails.html?id=${eventId}`;
+            })
+            .catch((error) => {
+              console.error("Error submitting review:", error);
+
+              // Fallback: redirect anyway since we can't modify the JSON file directly
+              alert(
+                "Your review has been received but could not be saved to the server. You will be redirected to the event page."
+              );
+              window.location.href = `/eventDetails.html?id=${eventId}`;
+            });
+        });
+    </script>
   </body>
 </html>

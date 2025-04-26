@@ -12,16 +12,23 @@
   ],
   "routes": [
     {
+      "src": "/apis/v1/(.*)",
+      "dest": "/src/app.js"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/src/app.js"
     },
     {
-      "src": "/purchase",
+      "src": "/make-review",
       "dest": "/public/review.html"
     },
     {
       "src": "/(.*)",
       "dest": "/public/$1"
     }
-  ]
+  ],
+  "env": {
+    "MONGODB_URI": "@mongodb_uri"
+  }
 }
