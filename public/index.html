@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Event Review</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.2/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .card {
+        border: 1px solid #ccc;
+        padding: 16px;
+        width: 300px;
+        border-radius: 8px;
+        box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
+        margin: 10px;
+        font-family: Arial, sans-serif;
+      }
+      .event-title {
+        font-size: 20px;
+        font-weight: bold;
+      }
+      .review-count {
+        color: #555;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <!-- Navbar -->
+    <nav class="bg-gray-800 p-4 text-white">
+      <div class="container mx-auto flex items-center justify-between">
+        <!-- Logo on the left -->
+        <a href="/" class="container mx-auto flex items-center pl-4">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            id="Layer_1"
+            data-name="Layer 1"
+            viewBox="0 0 2000 2000"
+            width="60"
+            height="60"
+          >
+            <defs>
+              <style>
+                .cls-1 {
+                  fill: #f1e135;
+                }
+              </style>
+            </defs>
+            <path id="black-logomark" class="cls-1" d="" />
+          </svg>
+          <h1 class="text-2xl font-bold pl-3">Review</h1>
+        </a>
+
+        <!-- buttons on the right -->
+        <div class="flex items-center space-x-4">
+          <a
+            href="/"
+            class="text-lg font-bold bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded shadow-lg"
+            >View Recource</a
+          >
+          <a
+            href="/make-review"
+            class="text-lg bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded shadow-lg"
+            >Make a Review</a
+          >
+        </div>
+      </div>
+    </nav>
+
+    <!-- Dashboard content here -->
+    <div class="container mx-auto mt-8">
+      <h1 class="text-2xl font-bold text-center mb-6">Dashboard</h1>
+
+      <!-- Tab Buttons -->
+      <div class="flex justify-center mb-6">
+        <button
+          onclick="filterCards('All')"
+          class="tab-btn bg-blue-500 text-white px-4 py-2 mx-1 rounded hover:bg-blue-600"
+        >
+          All
+        </button>
+        <button
+          onclick="filterCards('Event')"
+          class="tab-btn bg-gray-200 text-gray-800 px-4 py-2 mx-1 rounded hover:bg-gray-300"
+        >
+          Event
+        </button>
+        <button
+          onclick="filterCards('Unit')"
+          class="tab-btn bg-gray-200 text-gray-800 px-4 py-2 mx-1 rounded hover:bg-gray-300"
+        >
+          Unit
+        </button>
+      </div>
+
+      <!-- Cards Container -->
+      <div
+        id="event-container"
+        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-4"
+      ></div>
+
+      <h2 class="text-xl font-bold mt-4 text-center">Review</h2>
+      <div id="Review-unit" class="mt-2 mb-10"></div>
+    </div>
+
+    <script>
+      let allEvents = []; // will be populated from your JSON
+
+      // Render cards
+      function renderCards(filter = "All") {
+        const container = document.getElementById("event-container");
+        container.innerHTML = "";
+
+        const filtered =
+          filter === "All"
+            ? allEvents
+            : allEvents.filter((e) => e.category === filter);
+
+        filtered.forEach((event) => {
+          const card = document.createElement("div");
+          card.className =
+            "bg-white shadow-md rounded-lg p-4 hover:shadow-lg cursor-pointer";
+          card.innerHTML = `
+  <h3 class="text-lg font-bold mb-2">${event.eventName}</h3>
+  <p class="text-sm text-gray-600">Reviews: ${event.reviews.length}</p>
+  ${
+    event.category === "Event"
+      ? `<p class="text-sm text-gray-600">Organizer: ${event.organizer}</p>`
+      : ""
+  }
+`;
+
+          card.onclick = () => {
+            window.location.href = `eventDetails.html?id=${event.eventID}`;
+          };
+
+          //   if (event.category === "Event") {
+          //     content += `<p class="text-sm text-gray-600">Organizer: ${event.organizer}</p>`;
+          //   }
+          //   card.innerHTML = content;
+          container.appendChild(card);
+        });
+      }
+
+      // Filter function
+      function filterCards(category) {
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((btn) => btn.classList.remove("bg-blue-500", "text-white"));
+        event.target.classList.add("bg-blue-500", "text-white");
+        renderCards(category);
+      }
+
+      // Load JSON and initialize
+      fetch("events.json") // Or provide the actual path
+        .then((res) => res.json())
+        .then((data) => {
+          allEvents = data;
+          renderCards();
+        });
+
+      // v2
+      //     fetch('events.json')
+      //   .then(response => response.json())
+      //   .then(events => {
+      //     const container = document.getElementById('event-container');
+      //     events.forEach(event => {
+      //       const card = document.createElement('div');
+      //       card.className = 'card';
+      //       card.innerHTML = `
+      //         <div class="event-title">${event.eventName}</div>
+      //         <div class="review-count">Reviews: ${event.reviews.length}</div>
+      //         <div class="organizer">Organized by: ${event.organizer}</div>
+      //       `;
+      //       container.appendChild(card);
+      //     });
+      //   })
+      //   .catch(error => {
+      //     console.error('Error loading events:', error);
+      //   });
+
+      //   V1
+      //     const event = {
+      //   eventID : 1,
+      //   eventName : "MACATHON",
+      //   organizer : "Monash Association of Technology",
+      //   category : "Event",
+      //   code : "MAC001",
+      //   description : "Hackathon for university student",
+      //   date : "",
+      //   comments : {},
+      //   reviews : [
+      //     {
+      //       id : "ksahf4354fesrr4",
+      //       level : 5,
+      //       revieverName : "Akash",
+      //       date : "",
+      //       message : ""
+      //     }
+      //   ],
+      //   tags : []
+      // };
+
+      // const container = document.getElementById('event-container');
+      // const card = document.createElement('div');
+      // card.className = 'card';
+
+      // card.innerHTML = `
+      //   <div class="event-title">${event.eventName}</div>
+      //   <div class="review-count">Number of Reviews: ${event.reviews.length}</div>
+      // `;
+
+      // container.appendChild(card);
+    </script>
+  </body>
+</html>

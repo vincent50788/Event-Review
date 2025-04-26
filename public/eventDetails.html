@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Event Detail</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .emoji-button {
+        transition: transform 0.2s ease, filter 0.2s ease;
+        cursor: pointer;
+      }
+      .emoji-button:hover {
+        transform: scale(1.25);
+      }
+      .emoji-button.selected {
+        transform: scale(1.5);
+        filter: drop-shadow(0 0 10px #facc15); /* gold glow */
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 text-gray-800">
+    <nav class="bg-gray-800 p-4 text-white">
+      <div class="container mx-auto flex items-center justify-between">
+        <!-- Logo on the left -->
+        <a href="/" class="container mx-auto flex items-center pl-4">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            id="Layer_1"
+            data-name="Layer 1"
+            viewBox="0 0 2000 2000"
+            width="60"
+            height="60"
+          >
+            <defs>
+              <style>
+                .cls-1 {
+                  fill: #f1e135;
+                }
+              </style>
+            </defs>
+            <path id="black-logomark" class="cls-1" d="" />
+          </svg>
+          <h1 class="text-2xl font-bold pl-3">Review</h1>
+        </a>
+
+        <!-- buttons on the right -->
+        <div class="flex items-center space-x-4">
+          <a
+            href="/"
+            class="text-lg font-bold bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded shadow-lg"
+            >View Recource</a
+          >
+          <a
+            href="/make-review"
+            class="text-lg bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded shadow-lg"
+            >Make a Review</a
+          >
+        </div>
+      </div>
+    </nav>
+    <div class="container mx-auto p-4">
+      <h1 class="text-2xl font-bold mb-4" id="event-title"></h1>
+      <div id="event-details" class="mb-6"></div>
+      <h2 class="text-xl font-semibold mt-8 mb-2">Submit Your Rating</h2>
+      <form id="rating-form" class="bg-white p-4 rounded shadow space-y-4">
+        <div>
+          <label class="block font-medium">Your Name</label>
+          <input
+            type="text"
+            id="reviewer-name"
+            class="w-full border border-gray-300 p-2 rounded"
+            required
+          />
+        </div>
+        <div class="flex flex-wrap justify-center gap-4 my-6" id="emoji-rating">
+          <button
+            class="emoji-button text-4xl"
+            data-level="1"
+            title="Happiness"
+          >
+            😄
+          </button>
+          <button class="emoji-button text-4xl" data-level="2" title="Sadness">
+            😢
+          </button>
+          <button class="emoji-button text-4xl" data-level="3" title="Fear">
+            😨
+          </button>
+          <button class="emoji-button text-4xl" data-level="4" title="Disgust">
+            🤢
+          </button>
+          <button class="emoji-button text-4xl" data-level="5" title="Anger">
+            😡
+          </button>
+          <button class="emoji-button text-4xl" data-level="6" title="Surprise">
+            😲
+          </button>
+        </div>
+
+        <!-- Hidden input to hold selected rating level -->
+        <input type="hidden" id="review-rating" name="level" required />
+        <div>
+          <label class="block font-medium">Comment (optional)</label>
+          <textarea
+            id="review-message"
+            class="w-full border border-gray-300 p-2 rounded"
+          ></textarea>
+        </div>
+        <button
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Submit
+        </button>
+      </form>
+
+      <h2 class="text-xl font-semibold mb-2">Reviews</h2>
+      <div id="review-list" class="space-y-3"></div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const eventId = Number(params.get("id"));
+      let allEvents = [];
+      let currentEvent = null; // Declare the event here
+
+      fetch("events.json")
+        .then((res) => res.json())
+        .then((data) => {
+          allEvents = data;
+          currentEvent = allEvents.find((e) => e.eventID === eventId);
+
+          if (!currentEvent) return;
+
+          // Ensure the reviews array is initialized
+          if (!currentEvent.reviews) {
+            currentEvent.reviews = [];
+          }
+
+          document.getElementById("event-title").textContent =
+            currentEvent.eventName;
+
+          const detailHTML = `
+      <p><strong>Category:</strong> ${currentEvent.category}</p>
+      <p><strong>Code:</strong> ${currentEvent.code}</p>
+      <p><strong>Description:</strong> ${currentEvent.description}</p>
+      <p><strong>Date:</strong> ${currentEvent.date}</p>
+      ${
+        currentEvent.category === "Event"
+          ? `<p><strong>Organizer:</strong> ${currentEvent.organizer}</p>`
+          : ""
+      }
+      <p><strong>Tags:</strong> ${currentEvent.tags.join(", ")}</p>
+    `;
+          document.getElementById("event-details").innerHTML = detailHTML;
+
+          // Render reviews
+          const reviewList = document.getElementById("review-list");
+          currentEvent.reviews.forEach((review) => {
+            const reviewCard = document.createElement("div");
+            reviewCard.className = "bg-white p-4 rounded shadow";
+            reviewCard.innerHTML = `
+        <p><strong>${review.revieverName}</strong> (${review.level}/5)</p>
+        <p class="text-sm text-gray-500">${review.date}</p>
+        <p>${review.message}</p>
+      `;
+            reviewList.appendChild(reviewCard);
+          });
+        });
+
+      document
+        .getElementById("rating-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const name = document.getElementById("reviewer-name").value.trim();
+          const level = parseInt(
+            document.getElementById("review-rating").value
+          );
+          const message = document
+            .getElementById("review-message")
+            .value.trim();
+
+          if (!name || !level || level < 1 || level > 5) {
+            alert("Please provide a valid name and rating.");
+            return;
+          }
+
+          // Create a new review
+          const newReview = {
+            id: crypto.randomUUID(),
+            revieverName: name,
+            level,
+            date: new Date().toISOString().split("T")[0],
+            message,
+          };
+
+          // Ensure the reviews array is initialized
+          if (!currentEvent.reviews) {
+            currentEvent.reviews = [];
+          }
+
+          // Add the new review to the current event
+          currentEvent.reviews.push(newReview);
+
+          // Update UI immediately (optional: save to server/localStorage here)
+          const reviewCard = document.createElement("div");
+          reviewCard.className = "bg-white p-4 rounded shadow";
+          reviewCard.innerHTML = `
+      <p><strong>${newReview.revieverName}</strong> (${newReview.level}/5)</p>
+      <p class="text-sm text-gray-500">${newReview.date}</p>
+      <p>${newReview.message}</p>
+    `;
+          document.getElementById("review-list").appendChild(reviewCard);
+
+          // Reset form
+          e.target.reset();
+        });
+
+      const emojiButtons = document.querySelectorAll(".emoji-button");
+      const ratingInput = document.getElementById("review-rating");
+
+      emojiButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          emojiButtons.forEach((b) => b.classList.remove("selected"));
+          btn.classList.add("selected");
+          ratingInput.value = btn.dataset.level;
+        });
+      });
+    </script>
+  </body>
+</html>
