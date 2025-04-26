@@ -59,7 +59,41 @@
         </div>
       </div>
     </nav>
-    <div class="container mx-auto p-4">
+
+    <!-- Loading indicator -->
+    <div id="loading" class="container mx-auto p-8 text-center">
+      <div
+        class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"
+      ></div>
+      <p class="mt-2 text-gray-600">Loading event details...</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="error-container" class="container mx-auto p-8 hidden">
+      <div
+        class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
+      >
+        <strong class="font-bold">Error!</strong>
+        <span class="block sm:inline" id="error-message"
+          >Something went wrong.</span
+        >
+      </div>
+      <button
+        onclick="loadEventData()"
+        class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+      >
+        Try Again
+      </button>
+      <a
+        href="/"
+        class="mt-4 ml-4 bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded inline-block"
+      >
+        Back to Dashboard
+      </a>
+    </div>
+
+    <!-- Content container (hidden until loaded) -->
+    <div id="content-container" class="container mx-auto p-4 hidden">
       <h1 class="text-2xl font-bold mb-4" id="event-title"></h1>
       <div id="event-details" class="mb-6"></div>
       <h2 class="text-xl font-semibold mt-8 mb-2">Submit Your Rating</h2>
@@ -74,27 +108,46 @@
           />
         </div>
         <div class="flex flex-wrap justify-center gap-4 my-6" id="emoji-rating">
+          <!-- Fixed the rating levels to be 1-5 instead of 1-6 -->
           <button
             class="emoji-button text-4xl"
             data-level="1"
-            title="Happiness"
+            title="Very Dissatisfied"
+            type="button"
           >
-            😄
-          </button>
-          <button class="emoji-button text-4xl" data-level="2" title="Sadness">
-            😢
-          </button>
-          <button class="emoji-button text-4xl" data-level="3" title="Fear">
-            😨
-          </button>
-          <button class="emoji-button text-4xl" data-level="4" title="Disgust">
-            🤢
-          </button>
-          <button class="emoji-button text-4xl" data-level="5" title="Anger">
             😡
           </button>
-          <button class="emoji-button text-4xl" data-level="6" title="Surprise">
-            😲
+          <button
+            class="emoji-button text-4xl"
+            data-level="2"
+            title="Dissatisfied"
+            type="button"
+          >
+            😔
+          </button>
+          <button
+            class="emoji-button text-4xl"
+            data-level="3"
+            title="Neutral"
+            type="button"
+          >
+            😐
+          </button>
+          <button
+            class="emoji-button text-4xl"
+            data-level="4"
+            title="Satisfied"
+            type="button"
+          >
+            🙂
+          </button>
+          <button
+            class="emoji-button text-4xl"
+            data-level="5"
+            title="Very Satisfied"
+            type="button"
+          >
+            😄
           </button>
         </div>
 
@@ -115,60 +168,113 @@
         </button>
       </form>
 
-      <h2 class="text-xl font-semibold mb-2">Reviews</h2>
+      <h2 class="text-xl font-semibold mb-2 mt-8">Reviews</h2>
       <div id="review-list" class="space-y-3"></div>
     </div>
 
     <script>
       const params = new URLSearchParams(window.location.search);
       const eventId = Number(params.get("id"));
-      let allEvents = [];
-      let currentEvent = null; // Declare the event here
+      let currentEvent = null;
+      const apiEndpoint = `/apis/v1/event/${eventId}`;
 
-      fetch("events.json")
-        .then((res) => res.json())
-        .then((data) => {
-          allEvents = data;
-          currentEvent = allEvents.find((e) => e.eventID === eventId);
-
-          if (!currentEvent) return;
-
-          // Ensure the reviews array is initialized
-          if (!currentEvent.reviews) {
-            currentEvent.reviews = [];
-          }
-
-          document.getElementById("event-title").textContent =
-            currentEvent.eventName;
-
-          const detailHTML = `
-      <p><strong>Category:</strong> ${currentEvent.category}</p>
-      <p><strong>Code:</strong> ${currentEvent.code}</p>
-      <p><strong>Description:</strong> ${currentEvent.description}</p>
-      <p><strong>Date:</strong> ${currentEvent.date}</p>
-      ${
-        currentEvent.category === "Event"
-          ? `<p><strong>Organizer:</strong> ${currentEvent.organizer}</p>`
-          : ""
+      // Show loading state
+      function showLoading() {
+        document.getElementById("loading").classList.remove("hidden");
+        document.getElementById("content-container").classList.add("hidden");
+        document.getElementById("error-container").classList.add("hidden");
       }
-      <p><strong>Tags:</strong> ${currentEvent.tags.join(", ")}</p>
-    `;
-          document.getElementById("event-details").innerHTML = detailHTML;
 
-          // Render reviews
-          const reviewList = document.getElementById("review-list");
+      // Show error state
+      function showError(message) {
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("content-container").classList.add("hidden");
+        document.getElementById("error-container").classList.remove("hidden");
+        document.getElementById("error-message").textContent =
+          message || "Failed to load event data.";
+      }
+
+      // Show content
+      function showContent() {
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("content-container").classList.remove("hidden");
+        document.getElementById("error-container").classList.add("hidden");
+      }
+
+      // Load event data from API
+      function loadEventData() {
+        showLoading();
+
+        fetch(apiEndpoint)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(
+                `Server responded with status: ${response.status}`
+              );
+            }
+            return response.json();
+          })
+          .then((data) => {
+            currentEvent = data;
+            displayEventData();
+            showContent();
+          })
+          .catch((error) => {
+            console.error("Error fetching event data:", error);
+            showError(`Failed to load event details: ${error.message}`);
+          });
+      }
+
+      // Function to display event data
+      function displayEventData() {
+        if (!currentEvent) {
+          showError("Event not found");
+          return;
+        }
+
+        // Ensure the reviews array is initialized
+        if (!currentEvent.reviews) {
+          currentEvent.reviews = [];
+        }
+
+        document.getElementById("event-title").textContent =
+          currentEvent.eventName;
+
+        const detailHTML = `
+          <p><strong>Category:</strong> ${currentEvent.category}</p>
+          <p><strong>Code:</strong> ${currentEvent.code}</p>
+          <p><strong>Description:</strong> ${currentEvent.description}</p>
+          <p><strong>Date:</strong> ${currentEvent.date}</p>
+          ${
+            currentEvent.category === "Event"
+              ? `<p><strong>Organizer:</strong> ${currentEvent.organizer}</p>`
+              : ""
+          }
+          <p><strong>Tags:</strong> ${currentEvent.tags.join(", ")}</p>
+        `;
+        document.getElementById("event-details").innerHTML = detailHTML;
+
+        // Render reviews
+        const reviewList = document.getElementById("review-list");
+        reviewList.innerHTML = ""; // Clear existing reviews
+        if (currentEvent.reviews.length === 0) {
+          reviewList.innerHTML =
+            '<p class="text-gray-500">No reviews yet. Be the first to review!</p>';
+        } else {
           currentEvent.reviews.forEach((review) => {
             const reviewCard = document.createElement("div");
             reviewCard.className = "bg-white p-4 rounded shadow";
             reviewCard.innerHTML = `
-        <p><strong>${review.revieverName}</strong> (${review.level}/5)</p>
-        <p class="text-sm text-gray-500">${review.date}</p>
-        <p>${review.message}</p>
-      `;
+              <p><strong>${review.revieverName}</strong> (${review.level}/5)</p>
+              <p class="text-sm text-gray-500">${review.date}</p>
+              <p>${review.message}</p>
+            `;
             reviewList.appendChild(reviewCard);
           });
-        });
+        }
+      }
 
+      // Handle form submission
       document
         .getElementById("rating-form")
         .addEventListener("submit", function (e) {
@@ -182,42 +288,86 @@
             .getElementById("review-message")
             .value.trim();
 
-          if (!name || !level || level < 1 || level > 5) {
+          if (!name || isNaN(level) || level < 1 || level > 5) {
             alert("Please provide a valid name and rating.");
             return;
           }
 
           // Create a new review
           const newReview = {
-            id: crypto.randomUUID(),
+            id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
             revieverName: name,
             level,
             date: new Date().toISOString().split("T")[0],
-            message,
+            message: message || "No comment provided.",
           };
 
-          // Ensure the reviews array is initialized
-          if (!currentEvent.reviews) {
-            currentEvent.reviews = [];
-          }
+          // Submit review to API
+          const submitButton = e.target.querySelector('button[type="submit"]');
+          submitButton.disabled = true;
+          submitButton.textContent = "Submitting...";
 
-          // Add the new review to the current event
-          currentEvent.reviews.push(newReview);
+          fetch(`/apis/v1/event/${eventId}/review`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(newReview),
+          })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(
+                  `Failed to submit review. Status: ${response.status}`
+                );
+              }
+              return response.json();
+            })
+            .then((data) => {
+              console.log("Review submitted successfully:", data);
 
-          // Update UI immediately (optional: save to server/localStorage here)
-          const reviewCard = document.createElement("div");
-          reviewCard.className = "bg-white p-4 rounded shadow";
-          reviewCard.innerHTML = `
-      <p><strong>${newReview.revieverName}</strong> (${newReview.level}/5)</p>
-      <p class="text-sm text-gray-500">${newReview.date}</p>
-      <p>${newReview.message}</p>
-    `;
-          document.getElementById("review-list").appendChild(reviewCard);
+              // Update UI with new review
+              if (!currentEvent.reviews) currentEvent.reviews = [];
+              currentEvent.reviews.push(newReview);
 
-          // Reset form
-          e.target.reset();
+              const reviewList = document.getElementById("review-list");
+
+              // Clear "no reviews" message if it exists
+              if (
+                reviewList.firstChild &&
+                reviewList.firstChild.textContent.includes("No reviews yet")
+              ) {
+                reviewList.innerHTML = "";
+              }
+
+              const reviewCard = document.createElement("div");
+              reviewCard.className = "bg-white p-4 rounded shadow";
+              reviewCard.innerHTML = `
+              <p><strong>${newReview.revieverName}</strong> (${newReview.level}/5)</p>
+              <p class="text-sm text-gray-500">${newReview.date}</p>
+              <p>${newReview.message}</p>
+            `;
+              reviewList.appendChild(reviewCard);
+
+              // Reset form and button state
+              e.target.reset();
+              document
+                .querySelectorAll(".emoji-button")
+                .forEach((btn) => btn.classList.remove("selected"));
+              submitButton.disabled = false;
+              submitButton.textContent = "Submit";
+
+              // Show success message
+              alert("Thank you for your review!");
+            })
+            .catch((error) => {
+              console.error("Error submitting review:", error);
+              submitButton.disabled = false;
+              submitButton.textContent = "Submit";
+              alert(`Failed to submit review: ${error.message}`);
+            });
         });
 
+      // Handle emoji selection
       const emojiButtons = document.querySelectorAll(".emoji-button");
       const ratingInput = document.getElementById("review-rating");
 
@@ -228,6 +378,9 @@
           ratingInput.value = btn.dataset.level;
         });
       });
+
+      // Load data when page loads
+      window.addEventListener("DOMContentLoaded", loadEventData);
     </script>
   </body>
 </html>
